@@ -40,7 +40,7 @@ internal sealed class ReviewControl : UserControl
         toolbar.Controls.Add(MakeButton("Clear Selection", (_,_)=>SelectVisible(false)));
         toolbar.Controls.Add(MakeButton("Ignore", (_,_)=>SetIgnored(true)));
         toolbar.Controls.Add(MakeButton("Reopen", (_,_)=>SetIgnored(false)));
-        _view.Items.AddRange(new object[]{"All Results","Needs Attention","Existing Groups","Ignored","Show Everything"});
+        _view.Items.AddRange(new object[]{"Results","Needs Attention","Existing Groups","Ignored","Show Everything"});
         _view.SelectedIndex=0;
 
         _view.SelectedIndexChanged+=(_,_)=>RefreshFromState();
@@ -52,7 +52,19 @@ internal sealed class ReviewControl : UserControl
         {
             filters.Controls.Add(new Label{Text=pair.Item1,AutoSize=true,Padding=new Padding(0,5,0,0)});
             var input=new TextBox{Width=110};_filters[pair.Item2]=input;filters.Controls.Add(input);
-            input.TextChanged+=(_,_)=>RefreshFromState();
+            input.TextChanged+=(_,_) =>
+            {
+                // Searching for a Location ID should search the complete scan,
+                // including clean existing groups and ignored rows.
+                if(pair.Item2==nameof(GroupingCandidate.LocationId) &&
+                   !string.IsNullOrWhiteSpace(input.Text) &&
+                   _view.SelectedIndex!=4)
+                {
+                    _view.SelectedIndex=4; // Show Everything; its change event refreshes.
+                    return;
+                }
+                RefreshFromState();
+            };
         }
         views.Controls.Add(new Label{Text="Status",AutoSize=true,Padding=new Padding(0,5,0,0)});
         _statusFilter.Items.AddRange(new object[]{"All statuses","Ready","Reviewed","Review","Conflict","No match","Existing group","Ignored"});
@@ -228,7 +240,7 @@ internal sealed class ReviewControl : UserControl
 
             if (_view.SelectedIndex == 0)
             {
-                // All Results is the normal working view. With "All statuses"
+                // Results is the normal working view. With "All statuses"
                 // it hides resolved/ignored rows. If the user explicitly chooses
                 // a Status (including Existing group or Ignored), that explicit
                 // status request takes precedence so the second-layer filter
