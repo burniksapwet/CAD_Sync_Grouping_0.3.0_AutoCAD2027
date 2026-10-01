@@ -28,24 +28,34 @@ jobs:
                  (Get-Content .\build_input\fr021_03.txt -Raw)
           [IO.File]::WriteAllBytes('.\FINDANDREPLACEBLOCK_0.2.1_Source.zip',[Convert]::FromBase64String($b64))
           Expand-Archive '.\FINDANDREPLACEBLOCK_0.2.1_Source.zip' '.\work' -Force
+          Get-ChildItem .\work -Recurse | Select-Object FullName
 
       - name: Build
         shell: pwsh
         run: |
-          dotnet restore .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj
-          dotnet build .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj -c Release --no-restore
+          $ErrorActionPreference = 'Stop'
+          $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
+          if (-not $project) { throw 'CadSyncFindAndReplaceBlock.csproj not found after reconstruction.' }
+          dotnet restore $project.FullName
+          dotnet build $project.FullName -c Release --no-restore
 
       - name: Package
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
+          $projectDir = $project.Directory.FullName
+          $dll = Get-ChildItem (Join-Path $projectDir 'bin\Release') -Recurse -Filter 'CadSyncFindAndReplaceBlock2027V021.dll' | Select-Object -First 1
+          if (-not $dll) { throw 'Built plugin DLL not found.' }
+          $manifest = Get-ChildItem .\work -Recurse -Filter 'PackageContents.xml' | Where-Object { $_.FullName -like '*FindAndReplaceBlock.bundle*' } | Select-Object -First 1
+          if (-not $manifest) { throw 'PackageContents.xml not found.' }
+
           $bundleRoot = '.\out\FindAndReplaceBlock.bundle'
           $win64 = Join-Path $bundleRoot 'Contents\Win64'
           New-Item -ItemType Directory -Force $win64 | Out-Null
-          Copy-Item '.\work\bundle\FindAndReplaceBlock.bundle\PackageContents.xml' (Join-Path $bundleRoot 'PackageContents.xml')
-          $dll = '.\work\src\CadSyncFindAndReplaceBlock\bin\Release\net10.0-windows\CadSyncFindAndReplaceBlock2027V021.dll'
-          Copy-Item $dll (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V021.dll')
-          (Get-FileHash $dll -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V021.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
+          Copy-Item $manifest.FullName (Join-Path $bundleRoot 'PackageContents.xml')
+          Copy-Item $dll.FullName (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V021.dll')
+          (Get-FileHash $dll.FullName -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V021.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
           Compress-Archive -Path $bundleRoot -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.1_AutoLoad_Bundle.zip' -Force
 
       - uses: actions/upload-artifact@v4
