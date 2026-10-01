@@ -1,0 +1,56 @@
+name: Build Find and Replace Block 0.2.1
+
+on:
+  push:
+    branches: [ findreplace-0.2.0 ]
+    paths:
+      - 'build_input/fr021_*.txt'
+      - '.github/workflows/build_findreplace.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Reconstruct source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $b64 = (Get-Content .\build_input\fr021_00.txt -Raw) +
+                 (Get-Content .\build_input\fr021_01.txt -Raw) +
+                 (Get-Content .\build_input\fr021_02.txt -Raw) +
+                 (Get-Content .\build_input\fr021_03.txt -Raw)
+          [IO.File]::WriteAllBytes('.\FINDANDREPLACEBLOCK_0.2.1_Source.zip',[Convert]::FromBase64String($b64))
+          Expand-Archive '.\FINDANDREPLACEBLOCK_0.2.1_Source.zip' '.\work' -Force
+
+      - name: Build
+        shell: pwsh
+        run: |
+          dotnet restore .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj
+          dotnet build .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj -c Release --no-restore
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundleRoot = '.\out\FindAndReplaceBlock.bundle'
+          $win64 = Join-Path $bundleRoot 'Contents\Win64'
+          New-Item -ItemType Directory -Force $win64 | Out-Null
+          Copy-Item '.\work\bundle\FindAndReplaceBlock.bundle\PackageContents.xml' (Join-Path $bundleRoot 'PackageContents.xml')
+          $dll = '.\work\src\CadSyncFindAndReplaceBlock\bin\Release\net10.0-windows\CadSyncFindAndReplaceBlock2027V021.dll'
+          Copy-Item $dll (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V021.dll')
+          (Get-FileHash $dll -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V021.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
+          Compress-Archive -Path $bundleRoot -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.1_AutoLoad_Bundle.zip' -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FINDANDREPLACEBLOCK_0.2.1
+          path: |
+            FINDANDREPLACEBLOCK_0.2.1_AutoLoad_Bundle.zip
+            FINDANDREPLACEBLOCK_0.2.1_Source.zip
