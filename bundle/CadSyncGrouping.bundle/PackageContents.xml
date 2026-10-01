@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0"
+                    AppVersion="0.4.3.2"
+                    Author="DMG"
+                    Name="CAD Sync Grouping"
+                    Description="Reviews and creates Location ID to Valve block AutoCAD groups.">
+  <CompanyDetails Name="DMG" />
+  <Components Description="CAD Sync Grouping">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R26.0" SeriesMax="R26.0" />
+    <ComponentEntry AppName="CAD Sync Grouping"
+                    ModuleName="./Contents/Win64/CadSyncGrouping2027V043.dll"
+                    AppDescription="CAD Sync grouping review palette"
+                    LoadOnAutoCADStartup="False" LoadOnCommandInvocation="True">
+      <Commands GroupName="CADSYNC_GROUPING">
+        <Command Global="CADGROUPSCAN" Local="CADGROUPSCAN" />
+        <Command Global="CADGROUPREVIEW" Local="CADGROUPREVIEW" />
+        <Command Global="CADGROUPCREATE" Local="CADGROUPCREATE" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>
