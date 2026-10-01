@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage SchemaVersion="1.0"
-                    AppVersion="0.4.3.4"
+                    AppVersion="0.4.3.5"
                     Author="DMG"
                     Name="CAD Sync Grouping"
                     Description="Reviews and creates Location ID to Valve block AutoCAD groups.">

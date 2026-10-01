@@ -54,13 +54,14 @@ internal sealed class ReviewControl : UserControl
             var input=new TextBox{Width=110};_filters[pair.Item2]=input;filters.Controls.Add(input);
             input.TextChanged+=(_,_) =>
             {
-                // Searching for a Location ID should search the complete scan,
-                // including clean existing groups and ignored rows.
-                if(pair.Item2==nameof(GroupingCandidate.LocationId) &&
-                   !string.IsNullOrWhiteSpace(input.Text) &&
-                   _view.SelectedIndex!=4)
+                // Any text search should search the complete scan, including
+                // clean existing groups and ignored rows. When the final text
+                // filter is cleared manually, return to the normal Results view.
+                var anyTextFilter = _filters.Values.Any(box => !string.IsNullOrWhiteSpace(box.Text));
+                var desiredView = anyTextFilter ? 4 : 0; // Show Everything : Results
+                if(_view.SelectedIndex!=desiredView)
                 {
-                    _view.SelectedIndex=4; // Show Everything; its change event refreshes.
+                    _view.SelectedIndex=desiredView; // change event refreshes
                     return;
                 }
                 RefreshFromState();
