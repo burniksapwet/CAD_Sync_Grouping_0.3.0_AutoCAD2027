@@ -219,22 +219,39 @@ internal sealed class ReviewControl : UserControl
         var scan = doc != null && PluginState.Matches(doc) ? PluginState.LastScan : null;
         if (scan != null)
         {
-            IEnumerable<GroupingCandidate> source = scan.Candidates;
-            source=_view.SelectedIndex switch
-            {
-                // All Results is the normal working view: unresolved/actionable rows only.
-                // Clean existing groups and ignored rows are intentionally hidden.
-                0=>source.Where(c=>c.Status is not (CandidateStatus.Existing or CandidateStatus.Accepted)),
-                1=>source.Where(c=>c.Status is CandidateStatus.Ambiguous or CandidateStatus.NoMatch or CandidateStatus.Conflict),
-                2=>source.Where(c=>c.Status==CandidateStatus.Existing),
-                3=>source.Where(c=>c.Status==CandidateStatus.Accepted),
-                // Show Everything intentionally leaves the scan unfiltered by resolution state.
-                4=>source,
-                _=>source
-            };
+            var allRows = scan.Candidates.AsEnumerable();
+            var selectedStatus = _statusFilter.SelectedIndex > 0
+                ? _statusFilter.SelectedItem?.ToString()
+                : null;
 
-            if(_statusFilter.SelectedIndex>0)
-                source=source.Where(c=>c.StatusText==_statusFilter.SelectedItem?.ToString());
+            IEnumerable<GroupingCandidate> source;
+
+            if (_view.SelectedIndex == 0)
+            {
+                // All Results is the normal working view. With "All statuses"
+                // it hides resolved/ignored rows. If the user explicitly chooses
+                // a Status (including Existing group or Ignored), that explicit
+                // status request takes precedence so the second-layer filter
+                // never appears empty merely because the default view hid it.
+                source = selectedStatus == null
+                    ? allRows.Where(c => c.Status is not (CandidateStatus.Existing or CandidateStatus.Accepted))
+                    : allRows.Where(c => c.StatusText == selectedStatus);
+            }
+            else
+            {
+                source = _view.SelectedIndex switch
+                {
+                    1 => allRows.Where(c => c.Status is CandidateStatus.Ambiguous or CandidateStatus.NoMatch or CandidateStatus.Conflict),
+                    2 => allRows.Where(c => c.Status == CandidateStatus.Existing),
+                    3 => allRows.Where(c => c.Status == CandidateStatus.Accepted),
+                    // Show Everything intentionally leaves resolution state unfiltered.
+                    4 => allRows,
+                    _ => allRows
+                };
+
+                if (selectedStatus != null)
+                    source = source.Where(c => c.StatusText == selectedStatus);
+            }
             foreach(var filter in _filters.Where(f=>!string.IsNullOrWhiteSpace(f.Value.Text)))
                 source=source.Where(c=>CellValue(c,filter.Key).Contains(filter.Value.Text.Trim(),StringComparison.OrdinalIgnoreCase));
             source=_descending?source.OrderByDescending(c=>CellValue(c,_sortProperty),NaturalTextComparer.Instance):source.OrderBy(c=>CellValue(c,_sortProperty),NaturalTextComparer.Instance);
