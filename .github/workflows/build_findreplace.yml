@@ -6,6 +6,7 @@ on:
     paths:
       - 'build_input/fr021_*.txt'
       - 'build_overlay/TargetBlockDialog_022.cs'
+      - 'build_overlay/BlockFinderScanner_022.cs'
       - '.github/workflows/build_findreplace.yml'
   workflow_dispatch:
 
@@ -41,39 +42,7 @@ jobs:
 
           Copy-Item '.\build_overlay\TargetBlockDialog_022.cs' (Join-Path $projectDir 'TargetBlockDialog.cs') -Force
 
-          $scannerPath = Join-Path $projectDir 'BlockFinderScanner.cs'
-          $scanner = Get-Content $scannerPath -Raw
-          $scannerMarker = ('        tr.Commit();','        return rows;','    }','}') -join $nl
-          $scannerInsert = @(
-            '        tr.Commit();'
-            '        return rows;'
-            '    }'
-            ''
-            '    public static List<string> TargetDefinitionNames(Database db)'
-            '    {'
-            '        var names = new List<string>();'
-            '        using var tr = db.TransactionManager.StartTransaction();'
-            '        var table = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);'
-            ''
-            '        foreach (ObjectId id in table)'
-            '        {'
-            '            if (tr.GetObject(id, OpenMode.ForRead) is not BlockTableRecord definition) continue;'
-            '            if (definition.IsLayout || definition.IsFromExternalReference || definition.IsFromOverlayReference || definition.IsAnonymous) continue;'
-            '            if (string.IsNullOrWhiteSpace(definition.Name)) continue;'
-            '            names.Add(definition.Name);'
-            '        }'
-            ''
-            '        tr.Commit();'
-            '        return names'
-            '            .Distinct(StringComparer.OrdinalIgnoreCase)'
-            '            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)'
-            '            .ToList();'
-            '    }'
-            ''
-            '}'
-          ) -join $nl
-          if (-not $scanner.Contains($scannerMarker)) { throw 'BlockFinderScanner patch point not found.' }
-          Set-Content $scannerPath ($scanner.Replace($scannerMarker,$scannerInsert))
+          Copy-Item '.\build_overlay\BlockFinderScanner_022.cs' (Join-Path $projectDir 'BlockFinderScanner.cs') -Force
 
           $controlPath = Join-Path $projectDir 'FindAndReplaceControl.cs'
           $control = Get-Content $controlPath -Raw
