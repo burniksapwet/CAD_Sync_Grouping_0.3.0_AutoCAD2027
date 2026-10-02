@@ -34,6 +34,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $nl = [Environment]::NewLine
           $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
           if (-not $project) { throw 'CadSyncFindAndReplaceBlock.csproj not found.' }
           $projectDir = $project.Directory.FullName
@@ -42,47 +43,42 @@ jobs:
 
           $scannerPath = Join-Path $projectDir 'BlockFinderScanner.cs'
           $scanner = Get-Content $scannerPath -Raw
-          $scannerMarker = @'
-        tr.Commit();
-        return rows;
-    }
-}
-'@
-          $scannerInsert = @'
-        tr.Commit();
-        return rows;
-    }
-
-    public static List<string> TargetDefinitionNames(Database db)
-    {
-        var names = new List<string>();
-        using var tr = db.TransactionManager.StartTransaction();
-        var table = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
-
-        foreach (ObjectId id in table)
-        {
-            if (tr.GetObject(id, OpenMode.ForRead) is not BlockTableRecord definition) continue;
-            if (definition.IsLayout || definition.IsFromExternalReference || definition.IsFromOverlayReference || definition.IsAnonymous) continue;
-            if (string.IsNullOrWhiteSpace(definition.Name)) continue;
-            names.Add(definition.Name);
-        }
-
-        tr.Commit();
-        return names
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-}
-'@
+          $scannerMarker = ('        tr.Commit();','        return rows;','    }','}') -join $nl
+          $scannerInsert = @(
+            '        tr.Commit();'
+            '        return rows;'
+            '    }'
+            ''
+            '    public static List<string> TargetDefinitionNames(Database db)'
+            '    {'
+            '        var names = new List<string>();'
+            '        using var tr = db.TransactionManager.StartTransaction();'
+            '        var table = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);'
+            ''
+            '        foreach (ObjectId id in table)'
+            '        {'
+            '            if (tr.GetObject(id, OpenMode.ForRead) is not BlockTableRecord definition) continue;'
+            '            if (definition.IsLayout || definition.IsFromExternalReference || definition.IsFromOverlayReference || definition.IsAnonymous) continue;'
+            '            if (string.IsNullOrWhiteSpace(definition.Name)) continue;'
+            '            names.Add(definition.Name);'
+            '        }'
+            ''
+            '        tr.Commit();'
+            '        return names'
+            '            .Distinct(StringComparer.OrdinalIgnoreCase)'
+            '            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)'
+            '            .ToList();'
+            '    }'
+            ''
+            '}'
+          ) -join $nl
           if (-not $scanner.Contains($scannerMarker)) { throw 'BlockFinderScanner patch point not found.' }
           Set-Content $scannerPath ($scanner.Replace($scannerMarker,$scannerInsert))
 
           $controlPath = Join-Path $projectDir 'FindAndReplaceControl.cs'
           $control = Get-Content $controlPath -Raw
           $oldDialog = '        using var dialog = new TargetBlockDialog(source.Name, _summaries.Select(s => s.Name));'
-          $newDialog = '        var targetNames = BlockFinderScanner.TargetDefinitionNames(_document.Database);' + [Environment]::NewLine + '        using var dialog = new TargetBlockDialog(source.Name, targetNames);'
+          $newDialog = '        var targetNames = BlockFinderScanner.TargetDefinitionNames(_document.Database);' + $nl + '        using var dialog = new TargetBlockDialog(source.Name, targetNames);'
           if (-not $control.Contains($oldDialog)) { throw 'Target dialog call patch point not found.' }
           Set-Content $controlPath ($control.Replace($oldDialog,$newDialog))
 
@@ -101,14 +97,16 @@ jobs:
 
           $readme = Get-ChildItem .\work -Filter 'README.md' | Select-Object -First 1
           if ($readme) {
-            Add-Content $readme.FullName @'
-
-## 0.2.2 changes
-- Target-block typing now performs a case-insensitive contains search anywhere in the block name.
-- Typing BALL can surface BALL VALVE, CHECK BALL VALVE, BASKETBALL, and other names containing BALL.
-- Names beginning with the typed text are shown first, followed by other contains matches.
-- Suggestions are drawn from all named local block definitions in the drawing, not only the currently filtered finder rows.
-'@
+            $notes = @(
+              ''
+              ''
+              '## 0.2.2 changes'
+              '- Target-block typing now performs a case-insensitive contains search anywhere in the block name.'
+              '- Typing BALL can surface BALL VALVE, CHECK BALL VALVE, BASKETBALL, and other names containing BALL.'
+              '- Names beginning with the typed text are shown first, followed by other contains matches.'
+              '- Suggestions are drawn from all named local block definitions in the drawing, not only the currently filtered finder rows.'
+            ) -join $nl
+            Add-Content $readme.FullName $notes
           }
 
           Compress-Archive -Path '.\work\*' -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.2_Source.zip' -Force
