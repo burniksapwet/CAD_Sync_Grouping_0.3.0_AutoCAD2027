@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage SchemaVersion="1.0"
-                    AppVersion="0.4.3.7"
+                    AppVersion="0.4.3.8"
                     Author="DMG"
                     Name="CAD Sync Grouping"
                     Description="Reviews and creates Location ID to Valve block AutoCAD groups.">
@@ -12,9 +12,7 @@
                     AppDescription="CAD Sync grouping review palette"
                     LoadOnAutoCADStartup="False" LoadOnCommandInvocation="True">
       <Commands GroupName="CADSYNC_GROUPING">
-        <Command Global="CADGROUPSCAN" Local="CADGROUPSCAN" />
-        <Command Global="CADGROUPREVIEW" Local="CADGROUPREVIEW" />
-        <Command Global="CADGROUPCREATE" Local="CADGROUPCREATE" />
+        <Command Global="GROUPSCAN" Local="GROUPSCAN" />
       </Commands>
     </ComponentEntry>
   </Components>

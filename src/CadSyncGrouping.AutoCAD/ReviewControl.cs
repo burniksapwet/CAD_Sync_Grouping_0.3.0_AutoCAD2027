@@ -291,7 +291,7 @@ internal sealed class ReviewControl : UserControl
         }
         else
         {
-            _summary.Text = "Run CADGROUPSCAN to analyze the active drawing.";
+            _summary.Text = "Run GROUPSCAN to analyze the active drawing.";
         }
 
         _rows.RaiseListChangedEvents = true;
