@@ -1,4 +1,4 @@
-name: Build Find and Replace Block 0.2.3
+name: Build Find and Replace Block 0.2.4
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
       - 'build_input/fr021_*.txt'
       - 'build_overlay/TargetBlockDialog_023.cs'
       - 'build_overlay/BlockFinderScanner_022.cs'
-      - 'build_overlay/Patch_FindAndReplace_023.ps1'
+      - 'build_overlay/Patch_FindAndReplace_024.ps1'
       - '.github/workflows/build_findreplace.yml'
   workflow_dispatch:
 
@@ -32,7 +32,7 @@ jobs:
           [IO.File]::WriteAllBytes('.\baseline_021.zip',[Convert]::FromBase64String($b64))
           Expand-Archive '.\baseline_021.zip' '.\work' -Force
 
-      - name: Apply 0.2.3 updates
+      - name: Apply 0.2.4 updates
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -42,34 +42,35 @@ jobs:
 
           Copy-Item '.\build_overlay\TargetBlockDialog_023.cs' (Join-Path $projectDir 'TargetBlockDialog.cs') -Force
           Copy-Item '.\build_overlay\BlockFinderScanner_022.cs' (Join-Path $projectDir 'BlockFinderScanner.cs') -Force
-          & '.\build_overlay\Patch_FindAndReplace_023.ps1' -ProjectDir $projectDir
+          & '.\build_overlay\Patch_FindAndReplace_024.ps1' -ProjectDir $projectDir
 
           $assemblyPath = Join-Path $projectDir 'AssemblyInfo.cs'
-          (Get-Content $assemblyPath -Raw).Replace('0.2.1.0','0.2.3.0') | Set-Content $assemblyPath
+          (Get-Content $assemblyPath -Raw).Replace('0.2.1.0','0.2.4.0') | Set-Content $assemblyPath
 
           $projectText = Get-Content $project.FullName -Raw
-          $projectText = $projectText.Replace('CadSyncFindAndReplaceBlock2027V021','CadSyncFindAndReplaceBlock2027V023').Replace('<Version>0.2.1</Version>','<Version>0.2.3</Version>')
+          $projectText = $projectText.Replace('CadSyncFindAndReplaceBlock2027V021','CadSyncFindAndReplaceBlock2027V024').Replace('<Version>0.2.1</Version>','<Version>0.2.4</Version>')
           Set-Content $project.FullName $projectText
 
           $manifest = Get-ChildItem .\work -Recurse -Filter 'PackageContents.xml' | Where-Object { $_.FullName -like '*FindAndReplaceBlock.bundle*' } | Select-Object -First 1
           if (-not $manifest) { throw 'PackageContents.xml not found.' }
           $manifestText = Get-Content $manifest.FullName -Raw
-          $manifestText = $manifestText.Replace('0.2.1.0','0.2.3.0').Replace('CadSyncFindAndReplaceBlock2027V021.dll','CadSyncFindAndReplaceBlock2027V023.dll')
+          $manifestText = $manifestText.Replace('0.2.1.0','0.2.4.0').Replace('CadSyncFindAndReplaceBlock2027V021.dll','CadSyncFindAndReplaceBlock2027V024.dll')
           Set-Content $manifest.FullName $manifestText
 
           $readme = Get-ChildItem .\work -Filter 'README.md' | Select-Object -First 1
           if ($readme) {
             Add-Content $readme.FullName ''
             Add-Content $readme.FullName ''
-            Add-Content $readme.FullName '## 0.2.3 changes'
+            Add-Content $readme.FullName '## 0.2.4 changes'
             Add-Content $readme.FullName '- Replaced the native editable ComboBox suggestion drop-down with a stable in-form contains-search list.'
             Add-Content $readme.FullName '- Typing a name with no matches now shows a clear no-match message instead of throwing an index exception.'
             Add-Content $readme.FullName '- The suggestion list keeps a normal arrow cursor for mouse selection.'
-            Add-Content $readme.FullName '- Manually selected AutoCAD blocks of one source type can now use Change Block (Scale) and Change Block (Standard) directly.'
-            Add-Content $readme.FullName '- If the drawing selection is changed manually after choosing a finder row, the manual selection takes over so only the manually selected blocks are replaced.'
+            Add-Content $readme.FullName '- Manually selected AutoCAD blocks can include mixed block types and can use Change Block (Scale) and Change Block (Standard) directly.'
+            Add-Content $readme.FullName '- Mixed manual selections are converted to one chosen target; Scale is calculated independently from each source block and Standard uses 1:1 for each replacement.
+            Add-Content $readme.FullName '- If the drawing selection is changed manually after choosing a finder row, the manual selection takes over so only the manually selected blocks are replaced.''
           }
 
-          Compress-Archive -Path '.\work\*' -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.3_Source.zip' -Force
+          Compress-Archive -Path '.\work\*' -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.4_Source.zip' -Force
 
       - name: Build
         shell: pwsh
@@ -85,7 +86,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
           $projectDir = $project.Directory.FullName
-          $dll = Get-ChildItem (Join-Path $projectDir 'bin\Release') -Recurse -Filter 'CadSyncFindAndReplaceBlock2027V023.dll' | Select-Object -First 1
+          $dll = Get-ChildItem (Join-Path $projectDir 'bin\Release') -Recurse -Filter 'CadSyncFindAndReplaceBlock2027V024.dll' | Select-Object -First 1
           if (-not $dll) { throw 'Built plugin DLL not found.' }
           $manifest = Get-ChildItem .\work -Recurse -Filter 'PackageContents.xml' | Where-Object { $_.FullName -like '*FindAndReplaceBlock.bundle*' } | Select-Object -First 1
 
@@ -93,13 +94,13 @@ jobs:
           $win64 = Join-Path $bundleRoot 'Contents\Win64'
           New-Item -ItemType Directory -Force $win64 | Out-Null
           Copy-Item $manifest.FullName (Join-Path $bundleRoot 'PackageContents.xml')
-          Copy-Item $dll.FullName (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V023.dll')
-          (Get-FileHash $dll.FullName -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V023.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
-          Compress-Archive -Path $bundleRoot -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.3_AutoLoad_Bundle.zip' -Force
+          Copy-Item $dll.FullName (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V024.dll')
+          (Get-FileHash $dll.FullName -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V024.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
+          Compress-Archive -Path $bundleRoot -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.4_AutoLoad_Bundle.zip' -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FINDANDREPLACEBLOCK_0.2.3
+          name: FINDANDREPLACEBLOCK_0.2.4
           path: |
-            FINDANDREPLACEBLOCK_0.2.3_AutoLoad_Bundle.zip
-            FINDANDREPLACEBLOCK_0.2.3_Source.zip
+            FINDANDREPLACEBLOCK_0.2.4_AutoLoad_Bundle.zip
+            FINDANDREPLACEBLOCK_0.2.4_Source.zip
