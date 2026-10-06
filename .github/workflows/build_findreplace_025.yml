@@ -67,7 +67,7 @@ jobs:
           Copy-Item .\work\README.md .\out\README.md
           Copy-Item .\RegressionResults.txt .\out\RegressionResults.txt
           (Get-FileHash $dll -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V025.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
-          Compress-Archive -Path .\out\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.5_AutoLoad_Bundle.zip' -Force
+          Compress-Archive -Path .\out\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.5_AutoLoad_Bundle.zip -Force
           Copy-Item .\RegressionResults.txt .\work\RegressionResults.txt
           Get-ChildItem .\work -Recurse -Directory | Where-Object { $_.Name -in @('bin','obj') } | Sort-Object { $_.FullName.Length } -Descending | Remove-Item -Recurse -Force
           Compress-Archive -Path .\work\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.5_Source.zip -Force
