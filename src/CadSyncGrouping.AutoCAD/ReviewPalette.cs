@@ -14,6 +14,8 @@ internal static class ReviewPalette
     public static void Refresh()=>_control?.RefreshFromState();
     public static void Show()
     {
+        var reopening = _palette == null || !_palette.Visible;
+
         if (_palette == null)
         {
             _control = new ReviewControl();
@@ -29,7 +31,11 @@ internal static class ReviewPalette
             _palette.Add("Relationships", _control);
         }
 
-        _control!.RefreshFromState();
+        if (reopening)
+            _control!.ResetForOpen();
+        else
+            _control!.RefreshFromState();
+
         _palette.Visible = true;
 
         // AutoCAD can re-layout a newly shown floating PaletteSet after the

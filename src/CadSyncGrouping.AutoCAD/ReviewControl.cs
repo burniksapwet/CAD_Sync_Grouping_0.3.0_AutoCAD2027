@@ -87,6 +87,19 @@ internal sealed class ReviewControl : UserControl
         Controls.Add(_summary);
     }
 
+    public void ResetForOpen()
+    {
+        // Closing a PaletteSet only hides it; the same control instance remains
+        // alive for the AutoCAD session. Reset the working filters whenever the
+        // hidden palette is explicitly opened again.
+        foreach(var input in _filters.Values)
+            input.Clear();
+
+        _statusFilter.SelectedIndex=0;
+        _view.SelectedIndex=0; // Results
+        RefreshFromState();
+    }
+
     private Button MakeButton(string text, EventHandler handler)
     {
         var button = new Button { Text = text, AutoSize = true };
