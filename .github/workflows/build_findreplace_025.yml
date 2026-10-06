@@ -14,6 +14,8 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -32,7 +34,7 @@ jobs:
           Copy-Item .\build_overlay\BlockFinderScanner_022.cs (Join-Path $projectDir 'BlockFinderScanner.cs') -Force
           Copy-Item .\build_overlay\TargetBlockDialog_023.cs (Join-Path $projectDir 'TargetBlockDialog.cs') -Force
           & .\build_overlay\Patch_FindAndReplace_024.ps1 -ProjectDir $projectDir
-          python .\build_overlay\Patch_FindAndReplace_025.py .\work
+          python -X utf8 .\build_overlay\Patch_FindAndReplace_025.py .\work
           if ($LASTEXITCODE -ne 0) { throw 'Checked source patch failed.' }
           Copy-Item .\build_overlay\tests025 .\work\tests -Recurse
           if (Test-Path .\work\README.md) { Move-Item .\work\README.md .\work\HISTORY.md }
@@ -65,7 +67,7 @@ jobs:
           Copy-Item .\work\README.md .\out\README.md
           Copy-Item .\RegressionResults.txt .\out\RegressionResults.txt
           (Get-FileHash $dll -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V025.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
-          Compress-Archive -Path .\out\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.5_AutoLoad_Bundle.zip -Force
+          Compress-Archive -Path .\out\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.5_AutoLoad_Bundle.zip' -Force
           Copy-Item .\RegressionResults.txt .\work\RegressionResults.txt
           Get-ChildItem .\work -Recurse -Directory | Where-Object { $_.Name -in @('bin','obj') } | Sort-Object { $_.FullName.Length } -Descending | Remove-Item -Recurse -Force
           Compress-Archive -Path .\work\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.5_Source.zip -Force
