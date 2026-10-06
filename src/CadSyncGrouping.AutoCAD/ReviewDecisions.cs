@@ -48,10 +48,34 @@ internal static class ReviewDecisions
             if(row.Status==CandidateStatus.Existing)continue;
             row.ReviewFingerprint=Fingerprint(row,tr);
             var key=row.TextId.Handle.ToString();
-            if(dict==null||!dict.Contains(key))continue;
-            using var data=((Xrecord)tr.GetObject(dict.GetAt(key),OpenMode.ForRead)).Data;
-            if(data?.AsArray().FirstOrDefault().Value as string == row.ReviewFingerprint)
-            {row.Status=CandidateStatus.Accepted;row.Selected=false;}
+
+            string? savedDecision=null;
+            if(dict!=null&&dict.Contains(key))
+            {
+                using var data=((Xrecord)tr.GetObject(dict.GetAt(key),OpenMode.ForRead)).Data;
+                var values=data?.AsArray();
+                if(values!=null && values.Length>1 && values[0].Value as string == row.ReviewFingerprint)
+                    savedDecision=values[1].Value as string;
+            }
+
+            if(savedDecision=="Ignored/v1")
+            {
+                row.Status=CandidateStatus.Accepted;
+                row.Selected=false;
+                continue;
+            }
+
+            // Group-membership conflicts are noise by default: the scanner has
+            // already protected the existing group, so place them in Ignored
+            // unless the user explicitly reopens this exact relationship.
+            if(row.ExistingMembership && row.Status==CandidateStatus.Conflict)
+            {
+                if(savedDecision!="ReopenedGroupConflict/v1")
+                {
+                    row.Status=CandidateStatus.Accepted;
+                    row.Selected=false;
+                }
+            }
         }
     }
     internal static void SaveBatch(Database db,IReadOnlyList<GroupingCandidate> rows,bool accept)
@@ -59,21 +83,30 @@ internal static class ReviewDecisions
         using var tr=db.TransactionManager.StartTransaction();
         var nod=(DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId,OpenMode.ForRead);
         DBDictionary dict;
+        var needsReopenOverride=!accept && rows.Any(row=>row.ExistingMembership);
         if(!nod.Contains(DictionaryName))
-        {if(!accept)return;nod.UpgradeOpen();dict=new DBDictionary();nod.SetAt(DictionaryName,dict);tr.AddNewlyCreatedDBObject(dict,true);}
+        {
+            if(!accept && !needsReopenOverride)return;
+            nod.UpgradeOpen();dict=new DBDictionary();nod.SetAt(DictionaryName,dict);tr.AddNewlyCreatedDBObject(dict,true);
+        }
         else dict=(DBDictionary)tr.GetObject(nod.GetAt(DictionaryName),OpenMode.ForWrite);
+
         foreach(var row in rows)
         {
-        var key=row.TextId.Handle.ToString();
-        if(dict.Contains(key)){var old=tr.GetObject(dict.GetAt(key),OpenMode.ForWrite);dict.Remove(key);old.Erase();}
-        if(accept)
-        {
+            var key=row.TextId.Handle.ToString();
+            if(dict.Contains(key)){var old=tr.GetObject(dict.GetAt(key),OpenMode.ForWrite);dict.Remove(key);old.Erase();}
+
+            // Reopening an automatically ignored group-membership conflict must
+            // survive the next rescan. Store a fingerprint-specific override so
+            // it returns to Conflict until the underlying relationship changes.
+            var decision=accept ? "Ignored/v1" : row.ExistingMembership ? "ReopenedGroupConflict/v1" : null;
+            if(decision==null)continue;
+
             var record=new Xrecord();dict.SetAt(key,record);tr.AddNewlyCreatedDBObject(record,true);
-            using var data=new ResultBuffer(new TypedValue(1,Fingerprint(row,tr)),new TypedValue(1,"Ignored/v1"),
+            using var data=new ResultBuffer(new TypedValue(1,Fingerprint(row,tr)),new TypedValue(1,decision),
                 new TypedValue(1,row.LocationId),new TypedValue(1,row.TextId.Handle.ToString()),new TypedValue(1,row.ProposedBlockId.IsNull?"":row.ProposedBlockId.Handle.ToString()),
                 new TypedValue(1,row.ProposedBlockName),new TypedValue(1,row.Equipment.Type),new TypedValue(1,row.Reason),new TypedValue(1,DateTime.UtcNow.ToString("O")));
             record.Data=data;
-        }
         }
         tr.Commit();
     }
