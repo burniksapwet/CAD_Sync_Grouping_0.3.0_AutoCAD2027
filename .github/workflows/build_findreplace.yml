@@ -1,12 +1,13 @@
-name: Build Find and Replace Block 0.2.2
+name: Build Find and Replace Block 0.2.3
 
 on:
   push:
     branches: [ findreplace-0.2.0 ]
     paths:
       - 'build_input/fr021_*.txt'
-      - 'build_overlay/TargetBlockDialog_022.cs'
+      - 'build_overlay/TargetBlockDialog_023.cs'
       - 'build_overlay/BlockFinderScanner_022.cs'
+      - 'build_overlay/Patch_FindAndReplace_023.ps1'
       - '.github/workflows/build_findreplace.yml'
   workflow_dispatch:
 
@@ -31,54 +32,44 @@ jobs:
           [IO.File]::WriteAllBytes('.\baseline_021.zip',[Convert]::FromBase64String($b64))
           Expand-Archive '.\baseline_021.zip' '.\work' -Force
 
-      - name: Apply 0.2.2 contains-search update
+      - name: Apply 0.2.3 updates
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $nl = [Environment]::NewLine
           $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
           if (-not $project) { throw 'CadSyncFindAndReplaceBlock.csproj not found.' }
           $projectDir = $project.Directory.FullName
 
-          Copy-Item '.\build_overlay\TargetBlockDialog_022.cs' (Join-Path $projectDir 'TargetBlockDialog.cs') -Force
-
+          Copy-Item '.\build_overlay\TargetBlockDialog_023.cs' (Join-Path $projectDir 'TargetBlockDialog.cs') -Force
           Copy-Item '.\build_overlay\BlockFinderScanner_022.cs' (Join-Path $projectDir 'BlockFinderScanner.cs') -Force
-
-          $controlPath = Join-Path $projectDir 'FindAndReplaceControl.cs'
-          $control = Get-Content $controlPath -Raw
-          $oldDialog = '        using var dialog = new TargetBlockDialog(source.Name, _summaries.Select(s => s.Name));'
-          $newDialog = '        var targetNames = BlockFinderScanner.TargetDefinitionNames(_document.Database);' + $nl + '        using var dialog = new TargetBlockDialog(source.Name, targetNames);'
-          if (-not $control.Contains($oldDialog)) { throw 'Target dialog call patch point not found.' }
-          Set-Content $controlPath ($control.Replace($oldDialog,$newDialog))
+          & '.\build_overlay\Patch_FindAndReplace_023.ps1' -ProjectDir $projectDir
 
           $assemblyPath = Join-Path $projectDir 'AssemblyInfo.cs'
-          (Get-Content $assemblyPath -Raw).Replace('0.2.1.0','0.2.2.0') | Set-Content $assemblyPath
+          (Get-Content $assemblyPath -Raw).Replace('0.2.1.0','0.2.3.0') | Set-Content $assemblyPath
 
           $projectText = Get-Content $project.FullName -Raw
-          $projectText = $projectText.Replace('CadSyncFindAndReplaceBlock2027V021','CadSyncFindAndReplaceBlock2027V022').Replace('<Version>0.2.1</Version>','<Version>0.2.2</Version>')
+          $projectText = $projectText.Replace('CadSyncFindAndReplaceBlock2027V021','CadSyncFindAndReplaceBlock2027V023').Replace('<Version>0.2.1</Version>','<Version>0.2.3</Version>')
           Set-Content $project.FullName $projectText
 
           $manifest = Get-ChildItem .\work -Recurse -Filter 'PackageContents.xml' | Where-Object { $_.FullName -like '*FindAndReplaceBlock.bundle*' } | Select-Object -First 1
           if (-not $manifest) { throw 'PackageContents.xml not found.' }
           $manifestText = Get-Content $manifest.FullName -Raw
-          $manifestText = $manifestText.Replace('0.2.1.0','0.2.2.0').Replace('CadSyncFindAndReplaceBlock2027V021.dll','CadSyncFindAndReplaceBlock2027V022.dll')
+          $manifestText = $manifestText.Replace('0.2.1.0','0.2.3.0').Replace('CadSyncFindAndReplaceBlock2027V021.dll','CadSyncFindAndReplaceBlock2027V023.dll')
           Set-Content $manifest.FullName $manifestText
 
           $readme = Get-ChildItem .\work -Filter 'README.md' | Select-Object -First 1
           if ($readme) {
-            $notes = @(
-              ''
-              ''
-              '## 0.2.2 changes'
-              '- Target-block typing now performs a case-insensitive contains search anywhere in the block name.'
-              '- Typing BALL can surface BALL VALVE, CHECK BALL VALVE, BASKETBALL, and other names containing BALL.'
-              '- Names beginning with the typed text are shown first, followed by other contains matches.'
-              '- Suggestions are drawn from all named local block definitions in the drawing, not only the currently filtered finder rows.'
-            ) -join $nl
-            Add-Content $readme.FullName $notes
+            Add-Content $readme.FullName ''
+            Add-Content $readme.FullName ''
+            Add-Content $readme.FullName '## 0.2.3 changes'
+            Add-Content $readme.FullName '- Replaced the native editable ComboBox suggestion drop-down with a stable in-form contains-search list.'
+            Add-Content $readme.FullName '- Typing a name with no matches now shows a clear no-match message instead of throwing an index exception.'
+            Add-Content $readme.FullName '- The suggestion list keeps a normal arrow cursor for mouse selection.'
+            Add-Content $readme.FullName '- Manually selected AutoCAD blocks of one source type can now use Change Block (Scale) and Change Block (Standard) directly.'
+            Add-Content $readme.FullName '- If the drawing selection is changed manually after choosing a finder row, the manual selection takes over so only the manually selected blocks are replaced.'
           }
 
-          Compress-Archive -Path '.\work\*' -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.2_Source.zip' -Force
+          Compress-Archive -Path '.\work\*' -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.3_Source.zip' -Force
 
       - name: Build
         shell: pwsh
@@ -94,7 +85,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
           $projectDir = $project.Directory.FullName
-          $dll = Get-ChildItem (Join-Path $projectDir 'bin\Release') -Recurse -Filter 'CadSyncFindAndReplaceBlock2027V022.dll' | Select-Object -First 1
+          $dll = Get-ChildItem (Join-Path $projectDir 'bin\Release') -Recurse -Filter 'CadSyncFindAndReplaceBlock2027V023.dll' | Select-Object -First 1
           if (-not $dll) { throw 'Built plugin DLL not found.' }
           $manifest = Get-ChildItem .\work -Recurse -Filter 'PackageContents.xml' | Where-Object { $_.FullName -like '*FindAndReplaceBlock.bundle*' } | Select-Object -First 1
 
@@ -102,13 +93,13 @@ jobs:
           $win64 = Join-Path $bundleRoot 'Contents\Win64'
           New-Item -ItemType Directory -Force $win64 | Out-Null
           Copy-Item $manifest.FullName (Join-Path $bundleRoot 'PackageContents.xml')
-          Copy-Item $dll.FullName (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V022.dll')
-          (Get-FileHash $dll.FullName -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V022.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
-          Compress-Archive -Path $bundleRoot -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.2_AutoLoad_Bundle.zip' -Force
+          Copy-Item $dll.FullName (Join-Path $win64 'CadSyncFindAndReplaceBlock2027V023.dll')
+          (Get-FileHash $dll.FullName -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V023.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
+          Compress-Archive -Path $bundleRoot -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.3_AutoLoad_Bundle.zip' -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FINDANDREPLACEBLOCK_0.2.2
+          name: FINDANDREPLACEBLOCK_0.2.3
           path: |
-            FINDANDREPLACEBLOCK_0.2.2_AutoLoad_Bundle.zip
-            FINDANDREPLACEBLOCK_0.2.2_Source.zip
+            FINDANDREPLACEBLOCK_0.2.3_AutoLoad_Bundle.zip
+            FINDANDREPLACEBLOCK_0.2.3_Source.zip
