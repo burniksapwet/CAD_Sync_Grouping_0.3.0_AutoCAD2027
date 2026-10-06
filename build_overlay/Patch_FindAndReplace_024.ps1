@@ -304,7 +304,7 @@ $engineSourceBlock = @'
 
         var sourceDescription = sourceNames.Count == 1
             ? $"'{sourceNames[0]}'"
-            : $"{sourceNames.Count.ToString(CultureInfo.InvariantCulture)} source block types";
+            : $"{sourceNames.Count.ToString()} source block types";
 
         var alreadyTargetCount = sources.Count - sourcesToReplace.Count;
         if (alreadyTargetCount > 0)
