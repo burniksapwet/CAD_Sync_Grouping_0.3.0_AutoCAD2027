@@ -66,8 +66,8 @@ jobs:
             Add-Content $readme.FullName '- Typing a name with no matches now shows a clear no-match message instead of throwing an index exception.'
             Add-Content $readme.FullName '- The suggestion list keeps a normal arrow cursor for mouse selection.'
             Add-Content $readme.FullName '- Manually selected AutoCAD blocks can include mixed block types and can use Change Block (Scale) and Change Block (Standard) directly.'
-            Add-Content $readme.FullName '- Mixed manual selections are converted to one chosen target; Scale is calculated independently from each source block and Standard uses 1:1 for each replacement.
-            Add-Content $readme.FullName '- If the drawing selection is changed manually after choosing a finder row, the manual selection takes over so only the manually selected blocks are replaced.''
+            Add-Content $readme.FullName '- Mixed manual selections are converted to one chosen target; Scale is calculated independently from each source block and Standard uses 1:1 for each replacement.'
+            Add-Content $readme.FullName '- If the drawing selection is changed manually after choosing a finder row, the manual selection takes over so only the manually selected blocks are replaced.'
           }
 
           Compress-Archive -Path '.\work\*' -DestinationPath '.\FINDANDREPLACEBLOCK_0.2.4_Source.zip' -Force
