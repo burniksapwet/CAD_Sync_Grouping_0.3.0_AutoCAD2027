@@ -285,24 +285,7 @@ Set-Content $controlPath $control
 $enginePath = Join-Path $ProjectDir 'BlockReplacementEngine.cs'
 $engine = (Get-Content $enginePath -Raw).Replace("`r`n","`n")
 
-$oldEngineBlock = @'
-        var sourceNames = sources
-            .Select(source => GetEffectiveName(tr, source))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (sourceNames.Count != 1)
-            throw new InvalidOperationException("Choose one source block type at a time.");
-
-        if (string.Equals(sourceNames[0], targetName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("The selected blocks already use the requested target definition.");
-
-        ed.WriteMessage($"\nFind and Replace Block: {sources.Count} '{sourceNames[0]}' instance(s) -> '{targetName}'.");
-
-        var dynamicExtensionCount = sources.Count(source => source.IsDynamicBlock && !source.ExtensionDictionary.IsNull);
-'@
-
-$newEngineBlock = @'
+$engineSourceBlock = @'
         var sourceNames = sources
             .Select(source => GetEffectiveName(tr, source))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -332,19 +315,16 @@ $newEngineBlock = @'
         var dynamicExtensionCount = sourcesToReplace.Count(source => source.IsDynamicBlock && !source.ExtensionDictionary.IsNull);
 '@
 
-if (-not $engine.Contains($oldEngineBlock)) {
-    throw 'Mixed-source engine patch point not found.'
-}
-$engine = $engine.Replace($oldEngineBlock,$newEngineBlock)
+$engine = Replace-Once $engine '        var sourceNames = sources.*?        var dynamicExtensionCount = sources\.Count\(source => source\.IsDynamicBlock && !source\.ExtensionDictionary\.IsNull\);' $engineSourceBlock 'Mixed-source engine header'
 
-$engine = $engine.Replace(
-    '        foreach (var source in sources)' + "`n" + '        {' + "`n" + '            var replacementId = CreatePreviewReplacement(doc.Database, tr, source, definition, ed, mode);',
-    '        foreach (var source in sourcesToReplace)' + "`n" + '        {' + "`n" + '            var replacementId = CreatePreviewReplacement(doc.Database, tr, source, definition, ed, mode);'
-)
+$engine = Replace-Once $engine '        foreach \(var source in sources\)\s*\{\s*            var replacementId = CreatePreviewReplacement\(doc\.Database, tr, source, definition, ed, mode\);' @'
+        foreach (var source in sourcesToReplace)
+        {
+            var replacementId = CreatePreviewReplacement(doc.Database, tr, source, definition, ed, mode);
+'@ 'Mixed-source replacement loop'
 
-$engine = $engine.Replace(
-    '$"Replace all {replacements.Count} selected ''{sourceNames[0]}'' instance(s) with ''{targetName}''?\n\nThe highlighted blocks are the preview.",',
-    '$"Replace {replacements.Count} selected block(s) from {sourceDescription} with ''{targetName}''?\n\nThe highlighted blocks are the preview.",'
-)
+$engine = Replace-Once $engine '\$"Replace all \{replacements\.Count\} selected ''\{sourceNames\[0\]\}'' instance\(s\) with ''\{targetName\}''\?\\n\\nThe highlighted blocks are the preview\.",' @'
+$"Replace {replacements.Count} selected block(s) from {sourceDescription} with '{targetName}'?\n\nThe highlighted blocks are the preview.",
+'@ 'Mixed-source confirmation'
 
 Set-Content $enginePath $engine
