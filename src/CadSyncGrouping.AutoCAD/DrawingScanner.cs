@@ -103,7 +103,19 @@ public static class DrawingScanner
             {
                 if(!groups.Contains(row.TextId)&&!groups.Contains(row.ProposedBlockId))continue;
                 row.ExistingMembership=true;row.Selected=false;
-                if(groups.SameGroup(row.TextId,row.ProposedBlockId)){row.Status=CandidateStatus.Existing;row.Reason="Independent geometry agrees with an existing group. Preserved; no new group.";}
+                if(groups.SameGroup(row.TextId,row.ProposedBlockId))
+                {
+                    if(ManualVerifications.Matches(db,tr,row))
+                    {
+                        row.Status=CandidateStatus.ManuallyVerified;
+                        row.Reason="Relationship was manually reviewed and verified by the user. Existing group preserved.";
+                    }
+                    else
+                    {
+                        row.Status=CandidateStatus.Existing;
+                        row.Reason="Independent geometry agrees with an existing group. Preserved; no new group.";
+                    }
+                }
                 else {row.Status=CandidateStatus.Conflict;row.Reason="An entity already belongs to a group. Preserved; no automatic regrouping.";}
             }
         }
