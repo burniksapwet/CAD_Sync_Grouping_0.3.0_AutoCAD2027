@@ -50,9 +50,11 @@ jobs:
           python -X utf8 .\build_overlay\Patch_FindAndReplace_027.py .\work
           if ($LASTEXITCODE -ne 0) { throw '0.2.7 UI/RENAMEBLOCKS patch failed.' }
           python -X utf8 .\build_overlay\Patch_FindAndReplace_028.py .\work
-          if ($LASTEXITCODE -ne 0) { throw '0.2.9 reopen reset patch failed.' }
+          if ($LASTEXITCODE -ne 0) { throw '0.2.8 reopen reset patch failed.' }
+          python -X utf8 .\build_overlay\Patch_FindAndReplace_029.py .\work
+          if ($LASTEXITCODE -ne 0) { throw '0.2.9 silent rename patch failed.' }
           if (Test-Path .\work\README.md) { Move-Item .\work\README.md .\work\HISTORY.md }
-          Copy-Item .\build_overlay\RELEASE_NOTES_028.md .\work\README.md
+          Copy-Item .\build_overlay\RELEASE_NOTES_029.md .\work\README.md
       - name: Compile actual AutoCAD plugin
         shell: pwsh
         run: |
