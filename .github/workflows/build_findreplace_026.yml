@@ -8,7 +8,7 @@ on:
       - 'build_overlay/RELEASE_NOTES_026.md'
       - 'build_overlay/tests025/**'
       - 'build_overlay/RELEASE_NOTES_025.md'
-      - '.github/workflows/build_findreplace_025.yml'
+      - '.github/workflows/build_findreplace_026.yml'
   workflow_dispatch:
 permissions:
   contents: read
