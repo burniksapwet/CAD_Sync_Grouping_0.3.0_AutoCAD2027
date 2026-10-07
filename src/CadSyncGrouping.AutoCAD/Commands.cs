@@ -23,6 +23,10 @@ public sealed class Commands : IExtensionApplication
         var doc = Application.DocumentManager.MdiActiveDocument;
         if (doc == null) return;
 
+        // Optional staff macro: run it first so the scan sees any block-name
+        // cleanup it performs. Missing RENAMEBLOCKS is intentionally silent.
+        OptionalMacros.TryRunRenameBlocksSilently();
+
         var scan = DrawingScanner.Scan(doc.Database);
         PluginState.SetScan(doc, scan);
 
