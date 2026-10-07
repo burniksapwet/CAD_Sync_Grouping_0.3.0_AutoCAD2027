@@ -28,9 +28,10 @@ public sealed class Commands : IExtensionApplication
 
         var ready = scan.Candidates.Count(c => c.Status == CandidateStatus.Ready);
         var review = scan.Candidates.Count(c => c.Status is CandidateStatus.Ambiguous or CandidateStatus.Conflict or CandidateStatus.NoMatch);
+        var verified = scan.Candidates.Count(c => c.Status == CandidateStatus.ManuallyVerified);
         doc.Editor.WriteMessage(
             $"\nCAD Sync Grouping: {scan.LocationTextCount} Location-ID text entities, {scan.ValveBlockCount} Valve blocks, " +
-            $"{scan.ExistingValveGroups} existing Valve groups, {ready} ready, {review} needing review.");
+            $"{scan.ExistingValveGroups} existing Valve groups, {verified} manually verified, {ready} ready, {review} needing review.");
 
         ReviewPalette.Show();
     }
