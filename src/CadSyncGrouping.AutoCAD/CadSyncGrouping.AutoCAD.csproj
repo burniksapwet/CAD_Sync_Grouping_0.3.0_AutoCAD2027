@@ -11,7 +11,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
-    <Version>0.4.3.8</Version>
+    <Version>0.4.3.9</Version>
   </PropertyGroup>
 
   <ItemGroup>
