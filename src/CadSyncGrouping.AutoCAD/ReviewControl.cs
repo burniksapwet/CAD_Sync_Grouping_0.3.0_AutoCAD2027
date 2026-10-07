@@ -68,7 +68,7 @@ internal sealed class ReviewControl : UserControl
             };
         }
         views.Controls.Add(new Label{Text="Status",AutoSize=true,Padding=new Padding(0,5,0,0)});
-        _statusFilter.Items.AddRange(new object[]{"All statuses","Ready","Reviewed","Review","Conflict","No match","Existing group","Ignored"});
+        _statusFilter.Items.AddRange(new object[]{"All statuses","Ready","Reviewed","Review","Conflict","No match","Existing group","Manually verified group","Ignored"});
         _statusFilter.SelectedIndex=0;
         _statusFilter.SelectedIndexChanged+=(_,_)=>RefreshFromState();
         views.Controls.Add(_statusFilter);
@@ -191,20 +191,41 @@ internal sealed class ReviewControl : UserControl
         _grid.InvalidateColumn(0);_refreshing=false;
     }
     private List<GroupingCandidate> SelectedVisible()=>_rows.Where(c=>c.ActionSelected).ToList();
+
+    private static bool CanGroup(GroupingCandidate c)=>
+        (c.Status is CandidateStatus.Ready or CandidateStatus.Reviewed or CandidateStatus.Ambiguous or CandidateStatus.NoMatch or CandidateStatus.Conflict)
+        && c.EligibleText
+        && !c.ProposedBlockId.IsNull
+        && !c.ExistingMembership;
+
+    private static bool RequiresManualVerification(GroupingCandidate c)=>
+        c.Status is CandidateStatus.Ambiguous or CandidateStatus.NoMatch or CandidateStatus.Conflict;
+
     private void PrepareGrouping()
     {
         var doc=Application.DocumentManager.MdiActiveDocument;
         if(doc==null||!PluginState.Matches(doc)||PluginState.LastScan==null)return;
 
-        var chosen=SelectedVisible().Where(c=>c.Status is CandidateStatus.Ready or CandidateStatus.Reviewed).ToHashSet();
+        var selected=SelectedVisible();
+        var chosen=selected.Where(CanGroup).ToHashSet();
         if(chosen.Count==0)
         {
-            _summary.Text="Select Ready/Reviewed rows to group. Other statuses require review or can be ignored.";
+            _summary.Text="Select a groupable relationship. Review/Conflict rows can be manually verified when they have an eligible proposed valve; existing/ignored rows and rows without a proposed valve cannot be grouped.";
+            return;
+        }
+        if(chosen.Count!=selected.Count)
+        {
+            _summary.Text="Some selected rows cannot be grouped. Clear the selection and choose only Ready/Reviewed rows or Review/Conflict rows with an eligible proposed valve.";
             return;
         }
 
+        var manualCount=chosen.Count(RequiresManualVerification);
+        var message=manualCount>0
+            ? $"Create {chosen.Count} selected group(s)?\n\n{manualCount} relationship(s) require manual verification and will be saved as \"Manually verified group\". Continue only if you have visually verified the proposed Location ID / valve relationship."
+            : $"Create {chosen.Count} selected Ready/Reviewed group(s)?";
+
         var answer=MessageBox.Show(
-            $"Create {chosen.Count} selected Ready/Reviewed group(s)?",
+            message,
             "CAD Sync Grouping",
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Question,
@@ -214,11 +235,12 @@ internal sealed class ReviewControl : UserControl
         foreach(var row in PluginState.LastScan.Candidates)row.Selected=chosen.Contains(row);
 
         int count;
+        int verifiedCount;
         using(doc.LockDocument())
         {
             try
             {
-                count=GroupWriter.CreateApprovedGroups(doc.Database,PluginState.LastScan);
+                count=GroupWriter.CreateApprovedGroups(doc.Database,PluginState.LastScan,out verifiedCount);
             }
             catch(System.Exception ex)
             {
@@ -231,6 +253,7 @@ internal sealed class ReviewControl : UserControl
 
         RefreshFromState();
         _summary.Text+=$"  Created {count} approved CAD Sync group(s).";
+        if(verifiedCount>0)_summary.Text+=$"  {verifiedCount} saved as Manually verified group.";
     }
 
     public void RefreshFromState()
@@ -260,7 +283,7 @@ internal sealed class ReviewControl : UserControl
                 // status request takes precedence so the second-layer filter
                 // never appears empty merely because the default view hid it.
                 source = selectedStatus == null
-                    ? allRows.Where(c => c.Status is not (CandidateStatus.Existing or CandidateStatus.Accepted))
+                    ? allRows.Where(c => c.Status is not (CandidateStatus.Existing or CandidateStatus.ManuallyVerified or CandidateStatus.Accepted))
                     : allRows.Where(c => c.StatusText == selectedStatus);
             }
             else
@@ -268,7 +291,7 @@ internal sealed class ReviewControl : UserControl
                 source = _view.SelectedIndex switch
                 {
                     1 => allRows.Where(c => c.Status is CandidateStatus.Ambiguous or CandidateStatus.NoMatch or CandidateStatus.Conflict),
-                    2 => allRows.Where(c => c.Status == CandidateStatus.Existing),
+                    2 => allRows.Where(c => c.Status is CandidateStatus.Existing or CandidateStatus.ManuallyVerified),
                     3 => allRows.Where(c => c.Status == CandidateStatus.Accepted),
                     // Show Everything intentionally leaves resolution state unfiltered.
                     4 => allRows,
@@ -287,7 +310,8 @@ internal sealed class ReviewControl : UserControl
 
             var ready = scan.Candidates.Count(c => c.Status is CandidateStatus.Ready or CandidateStatus.Reviewed);
             var review = scan.Candidates.Count(c => c.Status is CandidateStatus.Ambiguous or CandidateStatus.Conflict or CandidateStatus.NoMatch);
-            _summary.Text = $"Location text: {scan.LocationTextCount}   Valve blocks: {scan.ValveBlockCount}   Existing groups: {scan.ExistingValveGroups}   Ready/reviewed: {ready}   Needs review: {review}";
+            var verified = scan.Candidates.Count(c => c.Status == CandidateStatus.ManuallyVerified);
+            _summary.Text = $"Location text: {scan.LocationTextCount}   Valve blocks: {scan.ValveBlockCount}   Existing groups: {scan.ExistingValveGroups}   Manually verified: {verified}   Ready/reviewed: {ready}   Needs review: {review}";
         }
         else
         {
@@ -316,7 +340,7 @@ internal sealed class ReviewControl : UserControl
     {
         var doc=Application.DocumentManager.MdiActiveDocument;
         if(doc==null||!PluginState.Matches(doc))return;
-        var requested=SelectedVisible().Where(c=>ignore?c.Status is not (CandidateStatus.Existing or CandidateStatus.Accepted):c.Status==CandidateStatus.Accepted).ToList();
+        var requested=SelectedVisible().Where(c=>ignore?c.Status is not (CandidateStatus.Existing or CandidateStatus.ManuallyVerified or CandidateStatus.Accepted):c.Status==CandidateStatus.Accepted).ToList();
         if(requested.Count==0){_summary.Text=ignore?"Select ungrouped rows to ignore.":"Select ignored rows to reopen.";return;}
         using(doc.LockDocument())
         {
