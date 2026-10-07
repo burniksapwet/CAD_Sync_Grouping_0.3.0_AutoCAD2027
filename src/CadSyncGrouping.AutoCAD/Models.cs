@@ -10,7 +10,8 @@ public enum CandidateStatus
     Ambiguous,
     NoMatch,
     Conflict,
-    Accepted
+    Accepted,
+    ManuallyVerified
 }
 
 public sealed class GroupingCandidate
@@ -41,6 +42,7 @@ public sealed class GroupingCandidate
         CandidateStatus.NoMatch => "No match",
         CandidateStatus.Conflict => "Conflict",
         CandidateStatus.Accepted => "Ignored",
+        CandidateStatus.ManuallyVerified => "Manually verified group",
         _ => Status.ToString()
     };
 }
