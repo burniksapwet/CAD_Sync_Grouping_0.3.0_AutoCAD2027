@@ -11,12 +11,12 @@ internal static class OptionalMacros
         try
         {
             using var args = new ResultBuffer(
-                new TypedValue((int)LispDataType.Text, "c:RENAMEBLOCKS"));
+                new TypedValue((int)LispDataType.Text, "RenameBlocks-Silent"));
             using var result = Application.Invoke(args);
         }
         catch
         {
-            // RENAMEBLOCKS is optional. If the LSP/FAS is not loaded, do
+            // RenameBlocks-Silent is optional. If the updated LSP/FAS is not loaded, do
             // nothing and leave GROUPSCAN/Rescan behavior unchanged.
         }
     }
