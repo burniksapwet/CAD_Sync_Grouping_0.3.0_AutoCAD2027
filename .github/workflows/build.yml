@@ -1,4 +1,4 @@
-name: Build CAD Sync Grouping 0.4.3.8
+name: Build CAD Sync Grouping 0.4.3.9
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
           $dll = '.\src\CadSyncGrouping.AutoCAD\bin\Release\net10.0-windows\CadSyncGrouping2027V043.dll'
           Copy-Item $dll (Join-Path $win64 'CadSyncGrouping2027V043.dll')
           (Get-FileHash $dll -Algorithm SHA256).Hash + '  CadSyncGrouping2027V043.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
-          Compress-Archive -Path $bundleRoot -DestinationPath '.\CAD_Sync_Grouping_0.4.3.8_AutoLoad_Bundle.zip' -Force
+          Compress-Archive -Path $bundleRoot -DestinationPath '.\CAD_Sync_Grouping_0.4.3.9_AutoLoad_Bundle.zip' -Force
 
           $srcStage = Join-Path $root 'source'
           New-Item -ItemType Directory -Force (Join-Path $srcStage 'src') | Out-Null
@@ -41,11 +41,11 @@ jobs:
           Copy-Item '.\src\CadSyncGrouping.AutoCAD' (Join-Path $srcStage 'src') -Recurse
           Copy-Item '.\bundle\CadSyncGrouping.bundle' (Join-Path $srcStage 'bundle') -Recurse
           Get-ChildItem $srcStage -Recurse -Directory | Where-Object { $_.Name -in @('bin','obj') } | Remove-Item -Recurse -Force
-          Compress-Archive -Path (Join-Path $srcStage '*') -DestinationPath '.\CAD_Sync_Grouping_0.4.3.8_Source.zip' -Force
+          Compress-Archive -Path (Join-Path $srcStage '*') -DestinationPath '.\CAD_Sync_Grouping_0.4.3.9_Source.zip' -Force
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CAD_Sync_Grouping_0.4.3.8
+          name: CAD_Sync_Grouping_0.4.3.9
           path: |
-            CAD_Sync_Grouping_0.4.3.8_AutoLoad_Bundle.zip
-            CAD_Sync_Grouping_0.4.3.8_Source.zip
+            CAD_Sync_Grouping_0.4.3.9_AutoLoad_Bundle.zip
+            CAD_Sync_Grouping_0.4.3.9_Source.zip
