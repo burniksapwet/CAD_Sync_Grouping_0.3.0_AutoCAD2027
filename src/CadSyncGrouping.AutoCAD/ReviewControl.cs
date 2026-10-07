@@ -33,13 +33,12 @@ internal sealed class ReviewControl : UserControl
         };
 
         toolbar.Controls.Add(MakeButton("Rescan", (_, _) => Rescan()));
-        toolbar.Controls.Add(MakeButton("Rename Block", (_, _) => Application.DocumentManager.MdiActiveDocument?.SendStringToExecute("RENAMEBLOCK ", true, false, false)));
         toolbar.Controls.Add(MakeButton("Group Selected", (_, _) => { PrepareGrouping(); }));
-        toolbar.Controls.Add(MakeButton("Move Group", (_, _) => Application.DocumentManager.MdiActiveDocument?.SendStringToExecute("MOVEGROUP ", true, false, false)));
         toolbar.Controls.Add(MakeButton("Select All", (_,_)=>SelectVisible(true)));
         toolbar.Controls.Add(MakeButton("Clear Selection", (_,_)=>SelectVisible(false)));
         toolbar.Controls.Add(MakeButton("Ignore", (_,_)=>SetIgnored(true)));
         toolbar.Controls.Add(MakeButton("Reopen", (_,_)=>SetIgnored(false)));
+        toolbar.Controls.Add(MakeButton("Move Group", (_, _) => Application.DocumentManager.MdiActiveDocument?.SendStringToExecute("MOVEGROUP ", true, false, false)));
         _view.Items.AddRange(new object[]{"Results","Needs Attention","Existing Groups","Ignored","Show Everything"});
         _view.SelectedIndex=0;
 
@@ -367,16 +366,32 @@ internal sealed class ReviewControl : UserControl
             $"{row.Equipment.Type}  |  Equipment: {row.Equipment.Status}\n{row.Equipment.EffectiveName}  (reference: {row.Equipment.ActualName})\nLocation ID: {row.LocationId}   |   Association: {row.StatusText}\n{row.Equipment.Evidence}\n{row.Reason}";
     }
 
-    private void Rescan()
+    private async void Rescan()
     {
         var doc = Application.DocumentManager.MdiActiveDocument;
         if (doc == null) return;
-        using (doc.LockDocument())
+
+        try
         {
-            var scan = DrawingScanner.Scan(doc.Database);
-            PluginState.SetScan(doc, scan);
+            // Palette button callbacks are outside a normal AutoCAD command
+            // context. Enter one briefly so the optional AutoLISP macro can run
+            // before the scan. Missing RENAMEBLOCKS remains completely silent.
+            await OptionalMacros.TryRunRenameBlocksInCommandContextSilently();
+
+            if (!ReferenceEquals(Application.DocumentManager.MdiActiveDocument, doc))
+                return;
+
+            using (doc.LockDocument())
+            {
+                var scan = DrawingScanner.Scan(doc.Database);
+                PluginState.SetScan(doc, scan);
+            }
+            RefreshFromState();
         }
-        RefreshFromState();
+        catch(System.Exception ex)
+        {
+            _summary.Text=ex.Message;
+        }
     }
 
     private GroupingCandidate? CurrentRow()
