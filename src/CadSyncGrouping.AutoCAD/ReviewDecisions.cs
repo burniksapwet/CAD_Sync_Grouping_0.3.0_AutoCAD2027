@@ -45,7 +45,7 @@ internal static class ReviewDecisions
         DBDictionary? dict=nod.Contains(DictionaryName)?(DBDictionary)tr.GetObject(nod.GetAt(DictionaryName),OpenMode.ForRead):null;
         foreach(var row in rows)
         {
-            if(row.Status==CandidateStatus.Existing)continue;
+            if(row.Status is CandidateStatus.Existing or CandidateStatus.ManuallyVerified)continue;
             row.ReviewFingerprint=Fingerprint(row,tr);
             var key=row.TextId.Handle.ToString();
 
