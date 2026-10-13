@@ -1,5 +1,5 @@
 from pathlib import Path
-import shutil, sys
+import re, shutil, sys
 base=Path(sys.argv[1])
 root=base/'src/CadSyncFindAndReplaceBlock'
 overlay=Path(__file__).parent/'geometry030'
@@ -64,7 +64,22 @@ p.write_text(s)
 for p in [root/'AssemblyInfo.cs',root/'CadSyncFindAndReplaceBlock.csproj',base/'bundle/FindAndReplaceBlock.bundle/PackageContents.xml',root/'FindAndReplacePalette.cs']:
     s=p.read_text()
     assert '0.2.9' in s, str(p)
-    p.write_text(s.replace('0.2.9','0.2.10').replace('V029','V0210'))
+    s=s.replace('0.2.9','0.2.10').replace('V029','V0210')
+    if p.name=='AssemblyInfo.cs':
+        for attribute in ['AssemblyVersion','AssemblyFileVersion']:
+            pattern=rf'{attribute}\("[^"\r\n]*"\)'
+            s,count=re.subn(pattern,f'{attribute}("0.2.10.0")',s)
+            assert count==1, (attribute,count)
+    elif p.suffix=='.csproj':
+        s,count=re.subn(r'<Version>[^<]+</Version>','<Version>0.2.10</Version>',s)
+        assert count==1, 'Project version field missing'
+    elif p.name=='PackageContents.xml':
+        s,count=re.subn(r'AppVersion="[^"]+"','AppVersion="0.2.10.0"',s)
+        assert count==1, 'Bundle version field missing'
+    p.write_text(s)
 p=root/'FindAndReplaceControl.cs';s=p.read_text()
 p.write_text(s.replace('Find and Replace Block 0.2.5:', 'Find and Replace Block 0.2.10:'))
-print('0.2.10 source checks PASS: qualified geometric tip/facing placement; unchanged scale formula, dynamic mapping, attribute and group handling; existing selection, library, silent rename and 785x890 sizing retained.')
+assembly=(root/'AssemblyInfo.cs').read_text()
+assert 'AssemblyVersion("0.2.10.0")' in assembly
+assert 'AssemblyFileVersion("0.2.10.0")' in assembly
+print('0.2.10 source checks PASS: qualified geometric tip/facing placement; unchanged scale formula, dynamic mapping, attribute and group handling; existing selection, library, silent rename and 785x890 sizing retained; four-part assembly/file version normalized.')
