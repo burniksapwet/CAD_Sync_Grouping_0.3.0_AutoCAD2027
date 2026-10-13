@@ -45,10 +45,39 @@ jobs:
           }
           if (Test-Path .\work\README.md) { Move-Item .\work\README.md .\work\HISTORY.md }
           Copy-Item .\build_overlay\RELEASE_NOTES_030.md .\work\README.md
+      - name: Finalize and display exact release metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $assembly = '.\work\src\CadSyncFindAndReplaceBlock\AssemblyInfo.cs'
+          Write-Output 'Metadata before finalization:'
+          Get-Content $assembly
+          $lines = @(
+            'using System.Reflection;'
+            '[assembly: AssemblyTitle("Find and Replace Block")]'
+            '[assembly: AssemblyDescription("Combined block finder and replacement utility for AutoCAD 2027")]'
+            '[assembly: AssemblyCompany("DMG")]'
+            '[assembly: AssemblyProduct("Find and Replace Block")]'
+            '[assembly: AssemblyVersion("0.2.10.0")]'
+            '[assembly: AssemblyFileVersion("0.2.10.0")]'
+          )
+          [IO.File]::WriteAllLines((Join-Path $PWD $assembly), $lines, [Text.UTF8Encoding]::new($false))
+          Write-Output 'Metadata supplied to compiler and matching source archive:'
+          Get-Content $assembly
+          Get-Content .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj
+          if ((Get-Content $assembly -Raw) -match '0\.2\.10\.0\.0') { throw 'Malformed metadata remains.' }
       - name: Compile actual AutoCAD plugin
         shell: pwsh
         run: |
-          dotnet build .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj -c Release
+          $ErrorActionPreference = 'Stop'
+          $project = '.\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj'
+          for ($attempt=1; $attempt -le 3; $attempt++) {
+            dotnet restore $project
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq 3) { throw 'Package restore failed after retries.' }
+            Start-Sleep -Seconds 8
+          }
+          dotnet build $project -c Release --no-restore -p:WarningsAsErrors=CS7035
           if ($LASTEXITCODE -ne 0) { throw 'Plugin compilation failed.' }
       - name: Run retained selection and WinForms scenarios
         shell: pwsh
