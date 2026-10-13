@@ -42,7 +42,7 @@ internal static class Program
         return(placed,scale,angle);
     }
     static void PlacementCheck(SymbolEdge[] source,SymbolEdge[] target,bool standard,
-        double angle,double sx,double sy,SymbolPoint pos,SymbolPoint targetOffset)
+        double angle,double sx,double sy,SymbolPoint pos,SymbolPoint targetOffset,double directionTolerance=1e-9)
     {
         var s=Map(source,p=>pos+Rotate(new(p.X*sx,p.Y*sy,p.Z),angle));
         var t=Map(target,p=>pos+Rotate(new((p.X+targetOffset.X)*(standard?Math.Sign(sx):sx),
@@ -50,7 +50,7 @@ internal static class Program
         var result=Place(s,t,standard,Z);
         var sd=Describe(s);var td=Describe(result.Placed);
         Near(sd.Tip,td.Tip,"Connection moved");
-        Near(sd.Direction,td.Direction,"Visible facing changed");
+        Near(sd.Direction,td.Direction,"Visible facing changed",directionTolerance);
         if(standard) Near(result.Scale,1,"Standard changed its 1:1 scale");
     }
     static int Main()
@@ -118,8 +118,11 @@ internal static class Program
                 var shifted=Map(sensor,p=>p+new SymbolPoint(31,-4,0));
                 PlacementCheck(shifted,spray,false,0,1,1,new(7,8,0),new(-23,14,0));
             });
+            // Subtracting million-unit positions to recover a 0.1-unit arm loses
+            // several low bits. Allow 1e-7 in unit direction only in this test;
+            // the actual tip/connection position must still agree within 1e-9.
             Check("large drawing coordinates remain stable",()=>
-                PlacementCheck(sensor,spray,false,0.4,1,1,new(1000000,1000000,0),new(-17,21,0)));
+                PlacementCheck(sensor,spray,false,0.4,1,1,new(1000000,1000000,0),new(-17,21,0),directionTolerance:1e-7));
             Check("already matching source/target leaves orientation unchanged",()=>{
                 var placed=Place(newArrow,newArrow,false,Z);Near(placed.Scale,1,"Scale changed");Near(placed.Angle,0,"Rotation changed");
             });
