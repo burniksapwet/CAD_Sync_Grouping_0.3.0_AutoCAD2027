@@ -1,0 +1,33 @@
+name: Build local DWG analysis tools
+on:
+  push:
+    branches: [findreplace-0.2.10-geometry]
+    paths: ['.github/workflows/build_dwg_reader.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reader:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Compile LibreDWG reader
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://ftp.gnu.org/gnu/libredwg/libredwg-0.13.3.tar.xz -o reader.tar.xz
+          tar xf reader.tar.xz
+          cd libredwg-0.13.3
+          ./configure --disable-bindings --disable-shared --enable-static --disable-write --disable-docs CFLAGS='-O1'
+          make -j4 -C src
+          make -j4 -C programs dwgread dwg2dxf
+          mkdir -p ../tools
+          cp programs/dwgread programs/dwg2dxf ../tools/
+          cp COPYING ../tools/LibreDWG_LICENSE.txt
+          ldd ../tools/dwgread
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Local-DWG-Reader
+          path: tools/
+          if-no-files-found: error
+          retention-days: 7
