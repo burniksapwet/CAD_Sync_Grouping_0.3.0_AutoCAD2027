@@ -1,0 +1,91 @@
+name: Build and test Find and Replace Block 0.2.10
+on:
+  push:
+    branches: [findreplace-0.2.10-geometry]
+    paths:
+      - 'build_overlay/geometry030/**'
+      - 'build_overlay/Patch_FindAndReplace_030.py'
+      - 'build_overlay/RELEASE_NOTES_030.md'
+      - '.github/workflows/build_findreplace_0210.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Stage checked baseline and geometry correction
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $b64 = (Get-Content .\build_input\fr021_00.txt -Raw) + (Get-Content .\build_input\fr021_01.txt -Raw) + (Get-Content .\build_input\fr021_02.txt -Raw) + (Get-Content .\build_input\fr021_03.txt -Raw)
+          [IO.File]::WriteAllBytes((Join-Path $PWD 'baseline.zip'),[Convert]::FromBase64String($b64))
+          Expand-Archive .\baseline.zip .\work -Force
+          $project = Get-ChildItem .\work -Recurse -Filter 'CadSyncFindAndReplaceBlock.csproj' | Select-Object -First 1
+          if (-not $project) { throw 'Baseline missing.' }
+          $projectDir = $project.Directory.FullName
+          Copy-Item .\build_overlay\BlockFinderScanner_022.cs (Join-Path $projectDir 'BlockFinderScanner.cs') -Force
+          Copy-Item .\build_overlay\TargetBlockDialog_023.cs (Join-Path $projectDir 'TargetBlockDialog.cs') -Force
+          & .\build_overlay\Patch_FindAndReplace_024.ps1 -ProjectDir $projectDir
+          python -X utf8 .\build_overlay\Patch_FindAndReplace_025.py .\work
+          if ($LASTEXITCODE -ne 0) { throw '025 baseline failed.' }
+          python -X utf8 .\build_overlay\Patch_FindAndReplace_026.py .\work
+          if ($LASTEXITCODE -ne 0) { throw '026 baseline failed.' }
+          Copy-Item .\build_overlay\tests025 .\work\tests -Recurse
+          foreach ($patch in @('027','028','029','030')) {
+            python -X utf8 ".\build_overlay\Patch_FindAndReplace_$patch.py" .\work
+            if ($LASTEXITCODE -ne 0) { throw "Patch $patch failed." }
+          }
+          if (Test-Path .\work\README.md) { Move-Item .\work\README.md .\work\HISTORY.md }
+          Copy-Item .\build_overlay\RELEASE_NOTES_030.md .\work\README.md
+      - name: Compile actual AutoCAD plugin
+        shell: pwsh
+        run: |
+          dotnet build .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Plugin compilation failed.' }
+      - name: Run retained selection and WinForms scenarios
+        shell: pwsh
+        run: |
+          dotnet run --project .\work\tests\SelectionTests.csproj -c Release 2>&1 | Tee-Object -FilePath .\SelectionResults.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Selection tests failed.' }
+      - name: Run DWG-derived geometric regression scenarios
+        shell: pwsh
+        run: |
+          dotnet run --project .\work\geometry_tests\GeometryTests.csproj -c Release 2>&1 | Tee-Object -FilePath .\GeometryResults.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Geometry tests failed.' }
+      - name: Package exact tested source and DLL
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bundle = '.\out\FindAndReplaceBlock.bundle'
+          $win64 = Join-Path $bundle 'Contents\Win64'
+          New-Item -ItemType Directory -Force $win64 | Out-Null
+          $dll = '.\work\src\CadSyncFindAndReplaceBlock\bin\Release\net10.0-windows\CadSyncFindAndReplaceBlock2027V0210.dll'
+          if (-not (Test-Path $dll)) { throw 'Expected DLL missing.' }
+          $version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path $dll)).FileVersion
+          if ($version -ne '0.2.10.0') { throw "Incorrect DLL version $version" }
+          Copy-Item $dll $win64
+          Copy-Item .\work\bundle\FindAndReplaceBlock.bundle\PackageContents.xml $bundle
+          (Get-FileHash $dll -Algorithm SHA256).Hash + '  CadSyncFindAndReplaceBlock2027V0210.dll' | Set-Content (Join-Path $win64 'SHA256.txt')
+          Copy-Item .\work\README.md .\out\README.md
+          (Get-Content .\SelectionResults.txt -Raw) + [Environment]::NewLine + (Get-Content .\GeometryResults.txt -Raw) | Set-Content .\RegressionResults.txt
+          Copy-Item .\RegressionResults.txt .\out\RegressionResults.txt
+          Copy-Item .\RegressionResults.txt .\work\RegressionResults.txt
+          Compress-Archive -Path .\out\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.10_AutoLoad_Bundle.zip -Force
+          Get-ChildItem .\work -Recurse -Directory | Where-Object { $_.Name -in @('bin','obj') } | Sort-Object { $_.FullName.Length } -Descending | Remove-Item -Recurse -Force
+          Compress-Archive -Path .\work\* -DestinationPath .\FINDANDREPLACEBLOCK_0.2.10_Source.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FINDANDREPLACEBLOCK_0.2.10
+          if-no-files-found: error
+          path: |
+            FINDANDREPLACEBLOCK_0.2.10_AutoLoad_Bundle.zip
+            FINDANDREPLACEBLOCK_0.2.10_Source.zip
+            RegressionResults.txt
