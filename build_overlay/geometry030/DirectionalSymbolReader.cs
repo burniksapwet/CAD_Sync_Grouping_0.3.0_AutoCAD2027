@@ -99,7 +99,7 @@ internal static class DirectionalSymbolReader
             }
             case Hatch hatch:
             {
-                if(!hatch.SolidFill || hatch.NumberOfLoops!=1) return false;
+                if(!hatch.IsSolidFill || hatch.NumberOfLoops!=1) return false;
                 var loop=hatch.GetLoopAt(0);
                 var plane=Matrix3d.PlaneToWorld(hatch.Normal);
                 Point3d Lift(Point2d p)=>new Point3d(p.X,p.Y,hatch.Elevation).TransformBy(plane);
