@@ -1,3 +1,6 @@
+// The WPF framework reference needed for Autodesk overload resolution removes
+// the SDK's implicit System.IO import. Retain the baseline library imports.
+global using System.IO;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
