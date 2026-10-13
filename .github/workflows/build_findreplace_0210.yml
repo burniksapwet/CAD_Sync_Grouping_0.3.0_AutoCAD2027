@@ -45,27 +45,23 @@ jobs:
           }
           if (Test-Path .\work\README.md) { Move-Item .\work\README.md .\work\HISTORY.md }
           Copy-Item .\build_overlay\RELEASE_NOTES_030.md .\work\README.md
-      - name: Finalize and display exact release metadata
+      - name: Set release metadata through the SDK
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $assembly = '.\work\src\CadSyncFindAndReplaceBlock\AssemblyInfo.cs'
-          Write-Output 'Metadata before finalization:'
-          Get-Content $assembly
-          $lines = @(
-            'using System.Reflection;'
-            '[assembly: AssemblyTitle("Find and Replace Block")]'
-            '[assembly: AssemblyDescription("Combined block finder and replacement utility for AutoCAD 2027")]'
-            '[assembly: AssemblyCompany("DMG")]'
-            '[assembly: AssemblyProduct("Find and Replace Block")]'
-            '[assembly: AssemblyVersion("0.2.10.0")]'
-            '[assembly: AssemblyFileVersion("0.2.10.0")]'
-          )
-          [IO.File]::WriteAllLines((Join-Path $PWD $assembly), $lines, [Text.UTF8Encoding]::new($false))
-          Write-Output 'Metadata supplied to compiler and matching source archive:'
-          Get-Content $assembly
-          Get-Content .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj
-          if ((Get-Content $assembly -Raw) -match '0\.2\.10\.0\.0') { throw 'Malformed metadata remains.' }
+          $dir = '.\work\src\CadSyncFindAndReplaceBlock'
+          Remove-Item (Join-Path $dir 'AssemblyInfo.cs')
+          $project = Join-Path $dir 'CadSyncFindAndReplaceBlock.csproj'
+          $xml = [xml](Get-Content $project -Raw)
+          $props = $xml.Project.PropertyGroup
+          $props.GenerateAssemblyInfo = 'true'
+          foreach ($pair in @(@('AssemblyVersion','0.2.10.0'),@('FileVersion','0.2.10.0'),@('InformationalVersion','0.2.10'),@('Company','DMG'),@('Product','Find and Replace Block'),@('Description','Combined block finder and replacement utility for AutoCAD 2027'))) {
+            $node = $xml.CreateElement($pair[0])
+            $node.InnerText = $pair[1]
+            [void]$props.AppendChild($node)
+          }
+          $xml.Save((Join-Path $PWD $project))
+          Get-Content $project
       - name: Compile actual AutoCAD plugin
         shell: pwsh
         run: |
@@ -77,8 +73,28 @@ jobs:
             if ($attempt -eq 3) { throw 'Package restore failed after retries.' }
             Start-Sleep -Seconds 8
           }
-          dotnet build $project -c Release --no-restore -p:WarningsAsErrors=CS7035
+          dotnet build $project -c Release --no-restore -p:WarningsAsErrors=CS7035 -p:UseSharedCompilation=false
           if ($LASTEXITCODE -ne 0) { throw 'Plugin compilation failed.' }
+      - name: Record binary and generated metadata for inspection
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force '.\diagnostics' | Out-Null
+          Copy-Item .\work\src\CadSyncFindAndReplaceBlock\CadSyncFindAndReplaceBlock.csproj .\diagnostics
+          Get-ChildItem .\work\src\CadSyncFindAndReplaceBlock -Recurse -Filter '*AssemblyInfo.cs' | ForEach-Object { Copy-Item $_.FullName (Join-Path '.\diagnostics' $_.Name) }
+          $dll = '.\work\src\CadSyncFindAndReplaceBlock\bin\Release\net10.0-windows\CadSyncFindAndReplaceBlock2027V0210.dll'
+          if (Test-Path $dll) {
+            Copy-Item $dll .\diagnostics
+            [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path $dll)) | Format-List * | Out-File .\diagnostics\FileVersionDetails.txt
+            [System.Reflection.AssemblyName]::GetAssemblyName((Resolve-Path $dll)).FullName | Out-File .\diagnostics\AssemblyIdentity.txt
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: FindReplace0210-Binary-Diagnostics
+          path: diagnostics/
+          retention-days: 7
       - name: Run retained selection and WinForms scenarios
         shell: pwsh
         run: |
