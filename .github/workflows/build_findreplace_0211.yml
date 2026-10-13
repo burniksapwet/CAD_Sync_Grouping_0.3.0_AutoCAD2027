@@ -46,7 +46,7 @@ jobs:
           if (Test-Path .\work\README.md) { Move-Item .\work\README.md .\work\HISTORY.md }
           Copy-Item .\build_overlay\RELEASE_NOTES_030.md .\work\HISTORY_0210.md
           Copy-Item .\build_overlay\RELEASE_NOTES_031.md .\work\README.md
-      - name: Set exact SDK release metadata
+      - name: Set exact SDK release metadata and desktop references
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -56,7 +56,9 @@ jobs:
           $xml = [xml](Get-Content $project -Raw)
           $props = $xml.Project.PropertyGroup
           $props.GenerateAssemblyInfo = 'true'
-          foreach ($pair in @(@('AssemblyVersion','0.2.11.0'),@('FileVersion','0.2.11.0'),@('InformationalVersion','0.2.11'),@('Company','DMG'),@('Product','Find and Replace Block'),@('Description','Combined block finder and replacement utility for AutoCAD 2027'))) {
+          # StartUserInteraction has a WPF Window overload. Its type must be referenced
+          # for C# overload resolution even though this plugin calls the IntPtr overload.
+          foreach ($pair in @(@('UseWPF','true'),@('AssemblyVersion','0.2.11.0'),@('FileVersion','0.2.11.0'),@('InformationalVersion','0.2.11'),@('Company','DMG'),@('Product','Find and Replace Block'),@('Description','Combined block finder and replacement utility for AutoCAD 2027'))) {
             $node = $xml.CreateElement($pair[0])
             $node.InnerText = $pair[1]
             [void]$props.AppendChild($node)
